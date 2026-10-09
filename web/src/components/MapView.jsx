@@ -6,7 +6,8 @@ const BASEMAP = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 export default function MapView({ data }) {
     const container = useRef(null);
-
+    const mapRef = useRef(null);
+    const ready = useRef(false);
     useEffect(() => {
         const map = new maplibregl.Map({
             container: container.current,
@@ -14,6 +15,7 @@ export default function MapView({ data }) {
             center: [77.09, 28.64],
             zoom: 9.4,
         });
+        mapRef.current = map;
         map.addControl(new maplibregl.NavigationControl(), "top-right");
         map.on("error", (e) => console.error("Map error:", e.error));
 
@@ -34,10 +36,18 @@ export default function MapView({ data }) {
                     ],
                 },
             });
+            ready.current = true;
         });
 
-        return () => map.remove();
+        return () => {
+            ready.current = false;
+            map.remove();
+        };
     }, []);
+
+    useEffect(() => {
+        if (ready.current) mapRef.current.getSource("cells").setData(data);
+    }, [data]);
 
     return <div ref={container} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />;
 }
