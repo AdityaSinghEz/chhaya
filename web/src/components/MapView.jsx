@@ -4,10 +4,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 const BASEMAP = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
-export default function MapView({ data }) {
+const inList = (ids) => ["in", ["get", "h3_index"], ["literal", ids]];
+
+export default function MapView({ data, selected, onSelect, plan }) {
     const container = useRef(null);
     const mapRef = useRef(null);
     const ready = useRef(false);
+
     useEffect(() => {
         const map = new maplibregl.Map({
             container: container.current,
@@ -36,8 +39,26 @@ export default function MapView({ data }) {
                     ],
                 },
             });
+            map.addLayer({
+                id: "cells-plan",
+                type: "line",
+                source: "cells",
+                filter: inList(plan),
+                paint: { "line-color": "#0a7f8a", "line-width": 3 },
+            });
+            map.addLayer({
+                id: "cells-selected",
+                type: "line",
+                source: "cells",
+                filter: ["==", ["get", "h3_index"], ""],
+                paint: { "line-color": "#14282b", "line-width": 4 },
+            });
             ready.current = true;
         });
+
+        map.on("click", "cells-fill", (e) => onSelect(e.features[0].properties.h3_index));
+        map.on("mouseenter", "cells-fill", () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", "cells-fill", () => (map.getCanvas().style.cursor = ""));
 
         return () => {
             ready.current = false;
@@ -48,6 +69,14 @@ export default function MapView({ data }) {
     useEffect(() => {
         if (ready.current) mapRef.current.getSource("cells").setData(data);
     }, [data]);
+
+    useEffect(() => {
+        if (ready.current) mapRef.current.setFilter("cells-selected", ["==", ["get", "h3_index"], selected ?? ""]);
+    }, [selected]);
+
+    useEffect(() => {
+        if (ready.current) mapRef.current.setFilter("cells-plan", inList(plan));
+    }, [plan]);
 
     return <div ref={container} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />;
 }
